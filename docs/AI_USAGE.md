@@ -2,7 +2,9 @@
 
 This document explains how I used an AI assistant (Cursor) to build a task manager in React, and which parts I reviewed, corrected or refactored by hand. The exact prompts are listed in [PROMPTS.md](http://PROMPTS.md).
 
-**Stack:** Vite · React · TypeScript · plain CSS **AI tool:** Cursor (agent mode) **Workflow:** one prompt at a time → run the app → read the generated code → fix what is wrong → commit AI output and my own fixes as separate commits.
+- **Stack:** Vite · React · TypeScript · plain CSS
+- **AI tool:** Cursor (agent mode)
+- **Workflow:** one prompt at a time → run the app → read the generated code → fix what is wrong → commit AI output and my own fixes as separate commits.
 
 ## Summary
 
@@ -24,6 +26,7 @@ AI did most of the first-draft work: it proposed the architecture, wrote the typ
 - The plan kept state in one place and derived the visible list instead of storing a second copy, which avoids a common source of bugs.
 - `TaskForm` already trimmed the title and ignored empty submissions.
 - The stylesheet already included a visible keyboard focus style for the delete button.
+- The checkbox in `TaskItem` was already correctly labelled, because it was wrapped in a `<label>` containing the task title.
 - Splitting the work into small prompts made each result easy to review.
 
 ### Where AI fell short
@@ -32,6 +35,7 @@ AI did most of the first-draft work: it proposed the architecture, wrote the typ
 - The form input had only a placeholder, with no accessible label.
 - An empty submission failed silently, with no message for the user.
 - All state logic was placed inside one component, which makes it harder to reuse and extend.
+- Every task's delete button just said "Delete", so a screen reader user could not tell which task it removed.
 - *Add anything else you find while testing Prompts 3 and 4.*
 
 ## Manual improvements
@@ -40,7 +44,8 @@ Each improvement below was made after reading the generated code and testing it 
 
 ### 1. Accessible label and validation feedback in `TaskForm`
 
-**Files:** `src/components/TaskForm.tsx`, `src/App.css` **Commit:** `fix: add input label and empty-title feedback to task form`
+- **Files:** `src/components/TaskForm.tsx`, `src/App.css`
+- **Commit:** `fix: add input label and empty-title feedback to task form`
 
 **What the AI wrote:** The form trimmed the title and ignored empty submissions, but the input relied on a placeholder and had no label. Pressing "Add task" with an empty field did nothing, with no message. There was no length limit.
 
@@ -89,7 +94,8 @@ Each improvement below was made after reading the generated code and testing it 
 
 ### 2. Extract task logic into a `useTasks` hook
 
-**Files:** `src/hooks/useTasks.ts` (new), `src/components/TaskManager.tsx` **Commits:** `refactor: extract useTasks hook from TaskManager` (adds the hook) and `refactor: use useTasks hook in TaskManager` (switches the component over)
+- **Files:** `src/hooks/useTasks.ts` (new), `src/components/TaskManager.tsx`
+- **Commits:** `refactor: extract useTasks hook from TaskManager` (adds the hook) and `refactor: use useTasks hook in TaskManager` (switches the component over)
 
 **What the AI wrote:** `TaskManager` was a 68-line component that held the task state, the filter state, the `filterTasks` function and the add, toggle and delete handlers, together with the page markup.
 
@@ -127,11 +133,43 @@ export function TaskManager() {
 
 **Why it matters:** It separates logic from presentation, lets the logic be reused or tested without rendering UI, and gives persistence (`localStorage`) one clear place to live.
 
-### 3. Accessible names for task buttons
+### 3. Accessible names for task delete buttons
 
-**Files:** `src/components/TaskItem.tsx` **Commit:** *fill in after committing*
+- **Files:** `src/components/TaskItem.tsx`
+- **Commits:** `fix: name the task in each delete button's accessible label` (broke the build) and `fix: place delete button aria-label inside the button element` (working fix)
 
-*Check* `TaskItem.tsx` *first. If the delete button or the checkbox does not name the task it acts on, add an* `aria-label` *such as* `Delete "Buy milk"`*. If it already does, remove this section and do not log it as a fix.*
+**What the AI wrote:** Each task's delete button contained only the text "Delete". The checkbox was already correctly labelled, because it was wrapped in a `<label>` containing the task title, so I left it alone.
+
+**Before:**
+
+```tsx
+<button type="button" className="task-item__delete" onClick={() => onDelete(task.id)}>
+  Delete
+</button>
+
+```
+
+**After:**
+
+```tsx
+<button
+  type="button"
+  className="task-item__delete"
+  aria-label={`Delete "${task.title}"`}
+  onClick={() => onDelete(task.id)}
+>
+  Delete
+</button>
+
+```
+
+**What I changed:** Added an `aria-label` that includes the task title. The visible text is unchanged, and the accessible name still starts with the visible word "Delete", so voice-control users are not affected.
+
+**Mistake I caught:** I first pasted the button snippet below the component instead of replacing the existing button, so `npm run build` failed with "Cannot find name 'task'" (TS2304). I ran my commands in sequence instead of chaining them, so the broken commit was pushed before I read the error. I read `git diff` on the follow-up fix to confirm it removed the stray block and added the attribute, and I now chain `lint && build && commit` so a failing build blocks the commit.
+
+**Verification:** `npm run lint` and `npm run build` pass after the fix.
+
+**Why it matters:** With several tasks, a screen reader user would hear "Delete, button" repeatedly with no way to tell which task each button removes.
 
 ### 4. Further improvements
 
@@ -141,6 +179,7 @@ export function TaskManager() {
 
 - AI output looks finished before it is. The label and error message worked in code, but only browser testing showed the missing CSS.
 - Passing lint and build does not mean the code is wired up. My first refactor commit added a hook that nothing used, and only `git status` showed it.
+- Chaining `lint && build && commit` is worth the habit: a failing build should stop the commit, not follow it.
 - A clear plan before any code made the later prompts shorter and the results easier to check.
 - Committing AI output separately from my own changes keeps the history honest and makes my contribution visible.
 - *Add a final reflection after Prompt 4.*
