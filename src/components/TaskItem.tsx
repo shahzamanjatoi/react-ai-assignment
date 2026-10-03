@@ -21,6 +21,7 @@ export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
       <button
         type="button"
         className="task-item__delete"
+        aria-label={`Delete "${task.title}"`}
         onClick={() => onDelete(task.id)}
       >
         Delete
@@ -28,11 +29,3 @@ export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
     </li>
   )
 }
-<button
-  type="button"
-  className="task-item__delete"
-  aria-label={`Delete "${task.title}"`}
-  onClick={() => onDelete(task.id)}
->
-  Delete
-</button>
